@@ -1,5 +1,5 @@
 <h3 align="center">GhostPing</h3>
-<h1 align="center"> <img src="https://github.com/yourusername/ghostping/blob/main/ghostping.png" alt="ghostping" width="400px"></h1>
+<h1 align="center"> <img src="https://github.com/k4rkarov/ghostping/blob/main/ghostping.png" alt="ghostping" width="400px"></h1>
 
 A Go-based server that collects client location data (latitude, longitude, IP), enriches it with geolocation details, and securely forwards it to a Telegram chat for real-time monitoring.
 
