@@ -10,7 +10,7 @@ A Go-based server that collects client location data (latitude, longitude, IP), 
 `ghostping` requires **Go 1.18** or later to install successfully. Run the following command to install the latest version: 
 
 ```sh
-go install github.com/yourusername/ghostping/cmd/ghostping@latest
+go install github.com/k4rkarov/ghostping/cmd/ghostping@latest
 ````
 
 Ensure your Go environment is properly configured to fetch and install dependencies.
