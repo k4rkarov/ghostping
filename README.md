@@ -59,14 +59,14 @@ Description:
 
 ### Start the server
 
-```
-$ ghostping -token 123456:ABC-DEF -chat 987654321 -port 8088
+```bash
+ghostping -token 123456:ABC-DEF -chat 987654321 -port 8088
 Server running on port 8088...
 ```
 
 ### Send a location payload
 
-```
+```http
 POST http://localhost:8088/send-location
 Content-Type: application/json
 
@@ -78,7 +78,7 @@ Content-Type: application/json
 
 ### Telegram output
 
-```
+```text
 📍 Location Received:
 Latitude: -22.9129
 Longitude: -43.2003
@@ -96,6 +96,42 @@ Longitude: -43.2003
 * You must create a Telegram Bot using [@BotFather](https://t.me/BotFather) and obtain both the **bot token** and the **chat ID**.
 * The server is designed to be robust: it handles missing coordinates, unavailable IP data, and Telegram API errors gracefully.
 * For production use, consider running GhostPing as a `systemd` service or inside a container.
+
+<details>
+<summary><strong>How to create your Telegram bot with BotFather</strong></summary>
+
+1. Open Telegram and search for [@BotFather](https://t.me/BotFather).
+2. Start a chat and send `/newbot`.
+3. Follow the instructions: provide a bot name and username.
+4. Once created, BotFather will give you a **bot token**. Save it.
+5. To get your **chat ID**, start a chat with your bot and send a message, then use the following link in your browser:
+
+   ```
+   https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
+   ```
+
+   Look for `"chat":{"id":<YOUR_CHAT_ID>}` in the JSON response. Use that ID in your GhostPing command.
+
+</details>
+
+<details>
+<summary><strong>How to configure ngrok</strong></summary>
+
+1. Download and install ngrok from [https://ngrok.com/download](https://ngrok.com/download).
+2. Authenticate your account:
+
+   ```bash
+   ngrok authtoken <YOUR_NGROK_AUTH_TOKEN>
+   ```
+3. Start a tunnel pointing to your GhostPing server:
+
+   ```bash
+   ngrok http 8088
+   ```
+4. ngrok will give you a public URL like `https://abcd1234.ngrok-free.app/`.
+   Share this URL with your users – when they open it in a browser, GhostPing will automatically request their location and send it to your Telegram bot.
+
+</details>
 
 For any issues or feature requests, please open an issue on the [GitHub repository](https://github.com/yourusername/ghostping).
 
