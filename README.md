@@ -79,14 +79,30 @@ Content-Type: application/json
 ### Telegram output
 
 ```text
-📍 Location Received:
+📍 Location
 Latitude: -22.9129
 Longitude: -43.2003
 
-🌐 IP: 203.0.113.10
-🏙 City: Rio de Janeiro
-🏳 Country: Brazil
-📡 ISP: Example Telecom
+🌐 Network
+IP: 203.0.113.10
+City: Rio de Janeiro
+Country: Brazil
+ISP: Claro NXT Telecomunicacoes Ltda
+
+🖥 Device
+User-Agent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36
+Language: pt-BR
+Timezone: America/Sao_Paulo
+Screen: 412x915
+DPR: 1.75
+Platform: Linux armv81
+Battery: 18% not charging
+Connection: 4g, downlink: 10Mb/s, rtt: 150ms
+CPU Cores: 8
+Memory: 4.0 GB
+Cookies Enabled: true
+Plugins: 
+Touch Points: 2
 
 🔗 [View on Google Maps](https://www.google.com/maps?q=-22.9129,-43.2003)
 ```
