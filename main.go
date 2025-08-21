@@ -214,7 +214,7 @@ func main() {
 
 	http.HandleFunc("/send-location", sendLocationHandler)
 
-	addr := fmt.Sprintf(":%d", port)
+	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	log.Printf("Server running on port %d...", port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
