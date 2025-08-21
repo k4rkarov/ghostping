@@ -60,7 +60,7 @@ func usage() {
  :: :: :    :   : :   : :  :   :: : :       :      :        :    ::    :    :: :: :   
                                                                                       
        by k4rkarov (v1.0)
-\033[0m`)
+` + "\033[0m")
 	fmt.Println("")
 	fmt.Println("Usage: ghostping [options]")
 	fmt.Println("")
@@ -71,10 +71,11 @@ func usage() {
 	fmt.Println("  -h, --help       Show this help message")
 	fmt.Println("")
 	fmt.Println("Description:")
-	fmt.Println("GhostPing listens for POST requests on /send-location.")
-	fmt.Println("It extracts latitude and longitude from the JSON body,")
-	fmt.Println("resolves the client’s IP into city/country/ISP details,")
-	fmt.Println("then pushes a formatted message to your Telegram bot.")
+	fmt.Println("	GhostPing listens for POST requests on /send-location.")
+	fmt.Println("	It extracts latitude and longitude from the JSON body,")
+	fmt.Println("	resolves the client’s IP into city/country/ISP details,")
+	fmt.Println("	then pushes a formatted message to your Telegram bot.")
+	fmt.Println("")
 }
 
 func getIP(r *http.Request) string {
