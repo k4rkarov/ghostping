@@ -57,6 +57,8 @@ Description:
 
 # Running GhostPing
 
+![Demo](ghostping.gif)
+
 ### Start the server
 
 ```bash
