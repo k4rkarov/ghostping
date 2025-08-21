@@ -215,6 +215,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Servir a página HTML
+	http.Handle("/", http.FileServer(http.Dir("public")))
 	http.HandleFunc("/send-location", sendLocationHandler)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
