@@ -1,19 +1,26 @@
 <h3 align="center">GhostPing</h3>
-<h1 align="center"> <img src="https://github.com/k4rkarov/ghostping/blob/main/carbon.png" alt="ghostping" width="700px"></h1>
+<h1 align="center"><img src="carbon.png" alt="ghostping" width="700px"></h1>
 
-A Go-based server that collects client location data (latitude, longitude, IP), enriches it with geolocation details, and securely forwards it to a Telegram chat for real-time monitoring.
+A Go-based server that collects client device fingerprint and location data (latitude, longitude, IP), enriches it with geolocation details, and securely forwards it to a Telegram chat for real-time monitoring.
 
-<br>
+⚠️ **Disclaimer:** This project handles highly sensitive data (precise location, device details, IP info).  
+Use it **only** in authorized contexts such as penetration testing, research, or your own personal projects.  
+Do **not** deploy without user consent or outside the boundaries of applicable law.
 
-# Installation Instructions
+---
 
-`ghostping` requires **Go 1.18** or later to install successfully. Run the following command to install the latest version: 
+# Installation
+
+`ghostping` requires **Go 1.18** or later.
 
 ```sh
 go install github.com/k4rkarov/ghostping@latest
 ````
 
-Ensure your Go environment is properly configured to fetch and install dependencies.
+After installation, the binary will be available in your `$GOPATH/bin` or `$HOME/go/bin`.
+Make sure this directory is in your `PATH` so you can run `ghostping` directly.
+
+---
 
 # Usage
 
@@ -24,7 +31,6 @@ ghostping -h
 This will display the help menu.
 
 ```console
-
                                                                                       
  @@@@@@@@  @@@  @@@   @@@@@@    @@@@@@   @@@@@@@  @@@@@@@   @@@  @@@  @@@   @@@@@@@@  
 @@@@@@@@@  @@@  @@@  @@@@@@@@  @@@@@@@   @@@@@@@  @@@@@@@@  @@@  @@@@ @@@  @@@@@@@@@  
@@ -57,28 +63,59 @@ Description:
 
 # Running GhostPing
 
-![Demo](ghostping.gif)
-
-### Start the server
-
 ```bash
-ghostping -token 123456:ABC-DEF -chat 987654321 -port 8088
+ghostping -token 123456:ABCDEF -chat 987654321 -port 8088
 Server running on port 8088...
 ```
 
-### Send a location payload
+By default:
 
-```http
-POST http://localhost:8088/send-location
-Content-Type: application/json
+* `GET /` serves static files from the `public/` directory (see below).
+* `POST /send-location` accepts JSON with client data and pushes it to Telegram.
 
-{
-  "latitude": "-22.9129",
-  "longitude": "-43.2003"
-}
+---
+
+# `public/` directory
+
+The server automatically serves everything inside a folder named `public/`.
+This is where you place your client-side files (HTML/JS) that gather location and device details and send them back via `/send-location`.
+
+Example structure:
+
+```
+ghostping/
+  ├── public/
+  │   └── index.html   # Your page requesting geolocation + fingerprint
+  └── main.go
 ```
 
-### Telegram output
+You can customize `public/index.html` to fit your use case.
+
+---
+
+# Telegram Setup
+
+You need a **bot token** and a **chat ID**.
+
+1. Open Telegram and start a chat with [@BotFather](https://t.me/BotFather).
+2. Run `/newbot` and follow the instructions. Copy your bot token.
+3. To get your chat ID:
+
+   * Send a message to your bot.
+
+   * Open in browser:
+
+     ```
+     https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
+     ```
+
+   * Look for `"chat":{"id":<YOUR_CHAT_ID>}` in the JSON response.
+
+---
+
+# Example Output
+
+When a user visits your page and grants location access, GhostPing sends a message to Telegram:
 
 ```text
 📍 Location
@@ -103,54 +140,45 @@ Connection: 4g, downlink: 10Mb/s, rtt: 150ms
 CPU Cores: 8
 Memory: 4.0 GB
 Cookies Enabled: true
-Plugins: 
+Plugins:
 Touch Points: 2
 
 🔗 [View on Google Maps](https://www.google.com/maps?q=-22.9129,-43.2003)
 ```
 
-# Notes
+---
 
-* You must create a Telegram Bot using [@BotFather](https://t.me/BotFather) and obtain both the **bot token** and the **chat ID**.
-* The server is designed to be robust: it handles missing coordinates, unavailable IP data, and Telegram API errors gracefully.
-* For production use, consider running GhostPing as a `systemd` service or inside a container.
+# Ngrok (optional)
 
-<details>
-<summary><strong>How to create your Telegram bot with BotFather</strong></summary>
+If you want to expose GhostPing publicly (e.g., to test from a phone):
 
-1. Open Telegram and search for [@BotFather](https://t.me/BotFather).
-2. Start a chat and send `/newbot`.
-3. Follow the instructions: provide a bot name and username.
-4. Once created, BotFather will give you a **bot token**. Save it.
-5. To get your **chat ID**, start a chat with your bot and send a message, then use the following link in your browser:
-
-   ```
-   https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
-   ```
-
-   Look for `"chat":{"id":<YOUR_CHAT_ID>}` in the JSON response. Use that ID in your GhostPing command.
-
-</details>
-
-<details>
-<summary><strong>How to configure ngrok</strong></summary>
-
-1. Download and install ngrok from [https://ngrok.com/download](https://ngrok.com/download).
-2. Authenticate your account:
+1. Install [ngrok](https://ngrok.com/download).
+2. Authenticate:
 
    ```bash
    ngrok authtoken <YOUR_NGROK_AUTH_TOKEN>
    ```
-3. Start a tunnel pointing to your GhostPing server:
+3. Start a tunnel:
 
    ```bash
    ngrok http 8088
    ```
-4. ngrok will give you a public URL like `https://abcd1234.ngrok-free.app/`.
-   Share this URL with your users – when they open it in a browser, GhostPing will automatically request their location and send it to your Telegram bot.
+4. ngrok will provide a public URL like:
 
-</details>
+   ```
+   https://abcd1234.ngrok-free.app/
+   ```
 
-For any issues or feature requests, please open an issue on the [GitHub repository](https://github.com/yourusername/ghostping).
+   Share this URL. When opened in a browser, GhostPing will capture and forward the visitor’s data to Telegram.
 
-Enjoy using GhostPing for real-time location tracking!
+---
+
+# Notes
+
+* Handles missing coordinates, unavailable IP data, and Telegram API errors gracefully.
+* For production, consider running GhostPing as a `systemd` service or in a container.
+* Contributions and issues are welcome via [GitHub](https://github.com/yourusername/ghostping).
+
+---
+
+Enjoy using GhostPing for **authorized** real-time location and device tracking.
