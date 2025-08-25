@@ -53,12 +53,6 @@ Options:
   -chat CHAT_ID    Telegram chat ID (required)
   -port PORT       Port to run the server (default: 8088)
   -h, --help       Show this help message
-
-Description:
-  GhostPing listens for POST requests on /send-location. 
-  It extracts latitude and longitude from the JSON body, 
-  resolves the client’s IP into city/country/ISP details, 
-  then pushes a formatted message to your Telegram bot.
 ```
 
 # Running GhostPing
