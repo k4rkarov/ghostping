@@ -269,8 +269,7 @@ func main() {
 	flag.Parse()
 
 	if len(os.Args) == 1 {
-		fmt.Println("Error: no parameters provided")
-		usage()
+		fmt.Println("\033[31mError: no parameters provided. Use the -h/--help flag.\033[0m")
 		os.Exit(1)
 	}
 
